@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Release builds default to APK; set AURA_BUILD_FORMAT=appbundle for an AAB.
+# AURA_ALLOW_DEBUG_SIGNING_ON_MAIN=true permits a clearly warned test build on
+# main/principal without production keys; never enable it for production.
 set -euo pipefail
 
 log() {
@@ -13,13 +15,27 @@ fail() {
 
 # --- FASE 1: Detección de fallback y protección de rama principal ---
 USE_DEBUG_SIGNING=false
+ALLOW_DEBUG_SIGNING_ON_MAIN=false
 if [[ -z "${AURA_KEYSTORE_PATH:-}" && -z "${AURA_KEYSTORE_BASE64:-}" ]]; then
     log "WARNING: Production signing variables missing. Falling back to DEBUG signing configuration."
     USE_DEBUG_SIGNING=true
 
     # Proteger la rama principal: el fallback solo es para desarrollo
     if [[ "${CM_BRANCH:-}" == "main" || "${CM_BRANCH:-}" == "principal" || "${GITHUB_REF:-}" == "refs/heads/main" ]]; then
-        fail "CRITICAL: Production signing variables are strictly required for main/principal branches. Debug fallback is not allowed."
+        if [[ "${AURA_ALLOW_DEBUG_SIGNING_ON_MAIN:-}" == "true" ]]; then
+            ALLOW_DEBUG_SIGNING_ON_MAIN=true
+            log "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            log "WARNING: Compilación de PRUEBA en rama principal con firma DEBUG — NO publicar este artifact"
+            log "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            if [[ -n "${CM_ENV:-}" ]]; then
+                printf 'AURA_ALLOW_DEBUG_SIGNING_ON_MAIN=true\n' >> "$CM_ENV"
+            fi
+            if [[ -n "${GITHUB_ENV:-}" ]]; then
+                printf 'AURA_ALLOW_DEBUG_SIGNING_ON_MAIN=true\n' >> "$GITHUB_ENV"
+            fi
+        else
+            fail "CRITICAL: Production signing variables are strictly required for main/principal branches. Debug fallback is not allowed."
+        fi
     fi
 fi
 
@@ -125,6 +141,10 @@ verify_release_signer() {
     local apksigner_binary="$(command -v apksigner || true)"
     local android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
     local candidate
+
+    if [[ "$ALLOW_DEBUG_SIGNING_ON_MAIN" == "true" ]]; then
+        log "WARNING: PRUEBA en rama principal con firma DEBUG; no publicar este artifact."
+    fi
 
     if [[ -z "$apksigner_binary" && -n "$android_sdk" ]]; then
         for candidate in "$android_sdk"/build-tools/*/apksigner; do

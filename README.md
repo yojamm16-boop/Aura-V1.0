@@ -296,7 +296,7 @@ Cuando esto ocurre:
 1. El artefacto se compila exitosamente para fines de prueba.
 2. Se inyecta `BuildConfig.IS_DEBUG_FALLBACK = true`, permitiendo que la aplicación limite funcionalidades de alto riesgo en tiempo de ejecución.
 3. Se registra una advertencia clara en los logs de compilación.
-4. **En ramas `main` o `principal`, el fallback está prohibido** y el build falla explícitamente.
+4. **En ramas `main` o `principal`, el fallback está prohibido por defecto** y el build falla explícitamente. Para una compilación de prueba puntual, `AURA_ALLOW_DEBUG_SIGNING_ON_MAIN=true` habilita firma DEBUG con advertencia; úsala solo para pruebas, nunca para producción ni para publicar artefactos.
 
 ### Modo Producción (Recomendado para distribución)
 Cuando las variables de producción están configuradas, Gradle firma con `signingConfigs.release`. `tool/compile_aura.sh` valida con `keytool`, registra el fingerprint SHA-256 y verifica que el sujeto no sea `Android Debug`. `AURA_ALLOWED_CERT_SHA256` se genera dinámicamente con el certificado activo.
